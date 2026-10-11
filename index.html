@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>Người que đạp xe</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;600;700&display=swap');
+
+    :root {
+      color-scheme: light dark;
+      --paper: #f4f0e6;
+      --ink: #17241f;
+      --muted: #65716a;
+      --panel: rgba(255,255,255,.64);
+      --line: rgba(23,36,31,.14);
+      --accent: #e85b3f;
+      --accent-ink: #fffaf4;
+      --track: #d8d2c4;
+      --button: #fffaf1;
+      --shadow: 0 18px 60px rgba(35,49,42,.12);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #101714;
+        --ink: #eef0e9;
+        --muted: #9ca89f;
+        --panel: rgba(26,37,32,.72);
+        --line: rgba(238,240,233,.14);
+        --track: #3d4741;
+        --button: #1c2823;
+        --shadow: 0 18px 60px rgba(0,0,0,.32);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Manrope, system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+    .page {
+      width: min(1120px, 100%);
+      min-height: 100svh;
+      margin: 0 auto;
+      padding: clamp(14px, 3vw, 34px);
+      display: grid;
+      align-content: center;
+      gap: 16px;
+    }
+    .stage-shell {
+      position: relative;
+      min-height: clamp(390px, 67vh, 680px);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 32px 32px 12px 12px;
+      box-shadow: var(--shadow);
+      background: #b9deda;
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    .story {
+      position: absolute;
+      z-index: 2;
+      top: clamp(22px, 5vw, 54px);
+      left: clamp(22px, 5vw, 58px);
+      max-width: 420px;
+      pointer-events: none;
+      color: #17302d;
+      text-shadow: 0 1px 0 rgba(255,255,255,.28);
+    }
+    .stage-shell[data-terrain="night"] .story {
+      color: #f3f0df;
+      text-shadow: 0 1px 0 rgba(0,0,0,.25);
+    }
+    .stage-shell[data-terrain="night"] .story p { color: rgba(243,240,223,.72); }
+    .story h1 {
+      max-width: 8ch;
+      margin: 0;
+      font-size: clamp(35px, 6.4vw, 74px);
+      line-height: .98;
+      letter-spacing: -.065em;
+      font-weight: 700;
+    }
+    .story p {
+      margin: 16px 0 0;
+      max-width: 31ch;
+      font-size: clamp(13px, 1.8vw, 17px);
+      line-height: 1.55;
+      font-weight: 600;
+      color: rgba(23,48,45,.7);
+    }
+    .motion-note {
+      position: absolute;
+      z-index: 3;
+      right: 20px;
+      top: 18px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(250,247,237,.66);
+      color: #2f4641;
+      backdrop-filter: blur(10px);
+      font: 500 11px/1 DM Mono, monospace;
+      letter-spacing: .04em;
+    }
+    .motion-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #e85b3f;
+      box-shadow: 0 0 0 4px rgba(232,91,63,.16);
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: auto minmax(190px, 1fr) auto;
+      align-items: center;
+      gap: 18px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px 12px 26px 26px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+    .control-group { display: flex; align-items: center; gap: 9px; }
+    button {
+      min-width: 44px;
+      min-height: 44px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--button);
+      color: var(--ink);
+      cursor: pointer;
+      transition: background .2s, color .2s, border-color .2s;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    button:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 36%, transparent); outline-offset: 3px; }
+    button svg { width: 18px; height: 18px; fill: currentColor; }
+    .speed-wrap {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    label, output, .terrain-label {
+      font: 500 11px/1.2 DM Mono, monospace;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    output { width: 55px; color: var(--ink); text-align: right; }
+    input[type="range"] {
+      width: 100%;
+      min-width: 80px;
+      appearance: none;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--track);
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 4px solid var(--button);
+      box-shadow: 0 1px 8px rgba(0,0,0,.18);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 4px solid var(--button);
+    }
+    .terrain {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .terrain button {
+      min-width: auto;
+      min-height: 38px;
+      padding: 0 13px;
+      border-radius: 11px;
+      font: 600 12px/1 Manrope, sans-serif;
+    }
+    .terrain button[aria-pressed="true"] {
+      color: var(--accent-ink);
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+    .hint {
+      margin: 0;
+      text-align: center;
+      color: var(--muted);
+      font: 500 11px/1.4 DM Mono, monospace;
+    }
+    @media (max-width: 700px) {
+      .page { align-content: start; }
+      .stage-shell { min-height: 61svh; border-radius: 24px 24px 10px 10px; }
+      .story { max-width: 270px; }
+      .story h1 { font-size: clamp(38px, 12vw, 58px); }
+      .story p { max-width: 24ch; font-size: 13px; }
+      .motion-note { display: none; }
+      .controls { grid-template-columns: auto 1fr; gap: 14px; border-radius: 10px 10px 22px 22px; }
+      .speed-wrap { grid-template-columns: 1fr auto; }
+      .speed-wrap label { grid-column: 1 / -1; }
+      .terrain { grid-column: 1 / -1; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 14px; }
+      .terrain button { flex: 1; }
+    }
+    @media (max-width: 380px) {
+      .terrain-label { display: none; }
+      .story p { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .motion-dot { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="stage-shell" data-terrain="flat" aria-label="Hoạt cảnh người que đang đạp xe">
+      <canvas id="scene"></canvas>
+      <div class="story">
+        <h1>Cứ đạp về phía trước.</h1>
+        <p>Một hoạt cảnh nhỏ bằng Canvas — chân đạp, bánh lăn và cảnh vật cùng chuyển động theo tốc độ.</p>
+      </div>
+      <div class="motion-note"><span class="motion-dot"></span><span id="statusText">đang chuyển động</span></div>
+    </section>
+
+    <section class="controls" aria-label="Điều khiển hoạt cảnh">
+      <div class="control-group">
+        <button id="toggle" type="button" aria-label="Tạm dừng chuyển động">
+          <svg id="pauseIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.8A1.8 1.8 0 0 1 8.8 4h.4A1.8 1.8 0 0 1 11 5.8v12.4A1.8 1.8 0 0 1 9.2 20h-.4A1.8 1.8 0 0 1 7 18.2V5.8Zm6 0A1.8 1.8 0 0 1 14.8 4h.4A1.8 1.8 0 0 1 17 5.8v12.4a1.8 1.8 0 0 1-1.8 1.8h-.4a1.8 1.8 0 0 1-1.8-1.8V5.8Z"/></svg>
+          <svg id="playIcon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M7.5 5.42a1.7 1.7 0 0 1 2.56-1.47l10.15 6.08a2.3 2.3 0 0 1 0 3.94L10.06 20.05a1.7 1.7 0 0 1-2.56-1.47V5.42Z"/></svg>
+        </button>
+        <button id="reset" type="button" aria-label="Bắt đầu lại">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-8.51 6.07 1 1 0 1 1 1.9.65A7 7 0 1 0 7.1 6.84l1.6 1.6a.9.9 0 0 1-.64 1.54H3.9A.9.9 0 0 1 3 9.08V4.91a.9.9 0 0 1 1.54-.63l1.13 1.13A8.96 8.96 0 0 1 12 3Z"/></svg>
+        </button>
+      </div>
+
+      <div class="speed-wrap">
+        <label for="speed">Tốc độ</label>
+        <input id="speed" type="range" min="0.4" max="2.4" step="0.1" value="1.2" />
+        <output id="speedValue" for="speed">1.2×</output>
+      </div>
+
+      <div class="terrain" role="group" aria-label="Chọn địa hình">
+        <span class="terrain-label">Địa hình</span>
+        <button type="button" data-terrain="flat" aria-pressed="true">Phẳng</button>
+        <button type="button" data-terrain="hill" aria-pressed="false">Đồi</button>
+        <button type="button" data-terrain="night" aria-pressed="false">Đêm</button>
+      </div>
+    </section>
+    <p class="hint">Mẹo: chạm vào khung cảnh để tạm dừng hoặc tiếp tục</p>
+  </main>
+
+  <script>
+    (function () {
+      var canvas = document.getElementById('scene');
+      var ctx = canvas.getContext('2d');
+      var shell = canvas.parentElement;
+      var toggle = document.getElementById('toggle');
+      var reset = document.getElementById('reset');
+      var speedInput = document.getElementById('speed');
+      var speedValue = document.getElementById('speedValue');
+      var pauseIcon = document.getElementById('pauseIcon');
+      var playIcon = document.getElementById('playIcon');
+      var statusText = document.getElementById('statusText');
+      var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var state = { running: !reduceMotion, speed: 1.2, terrain: 'flat', time: 0, last: performance.now() };
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      function resize() {
+        var r = shell.getBoundingClientRect();
+        canvas.width = Math.max(1, Math.round(r.width * dpr));
+        canvas.height = Math.max(1, Math.round(r.height * dpr));
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function mix(a, b, t) { return a + (b - a) * t; }
+      function line(x1, y1, x2, y2, width, color) {
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = color; ctx.stroke();
+      }
+      function circle(x, y, r, fill, stroke, sw) {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+        if (stroke) { ctx.lineWidth = sw || 2; ctx.strokeStyle = stroke; ctx.stroke(); }
+      }
+      function cloud(x, y, s, alpha) {
+        ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = '#f9f6ea';
+        ctx.beginPath();
+        ctx.arc(x, y, 22*s, Math.PI, 0); ctx.arc(x+25*s, y-11*s, 28*s, Math.PI, 0);
+        ctx.arc(x+55*s, y, 23*s, Math.PI, 0); ctx.lineTo(x+55*s, y+18*s); ctx.lineTo(x, y+18*s); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+
+      function terrainY(x, w, h) {
+        var base = h * .76;
+        if (state.terrain === 'hill') return base + Math.sin((x + state.time*90*state.speed)/190) * 34;
+        return base;
+      }
+
+      function drawBackground(w, h) {
+        var night = state.terrain === 'night';
+        var grad = ctx.createLinearGradient(0, 0, 0, h);
+        if (night) { grad.addColorStop(0, '#122b38'); grad.addColorStop(.72, '#365654'); }
+        else { grad.addColorStop(0, '#aad7d6'); grad.addColorStop(.72, '#dce5c9'); }
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+
+        var sunX = w * .79, sunY = h * .19;
+        circle(sunX, sunY, Math.min(w,h)*.065, night ? '#f3efcb' : '#f3bc58');
+        if (night) {
+          ctx.fillStyle = 'rgba(243,239,203,.68)';
+          for (var i=0;i<24;i++) {
+            var sx = ((i*137.5)%w), sy = 30 + ((i*83)%Math.max(90,h*.43));
+            circle(sx, sy, i%3===0?1.7:1, '#f8f4d7');
+          }
+        } else {
+          var drift = (state.time * 9 * state.speed) % (w + 180);
+          cloud(w - drift, h*.27, .75, .66); cloud(w*.52 - drift*.36, h*.39, .48, .5); cloud(w*.08 - drift*.18, h*.18, .38, .46);
+        }
+
+        var offsetFar = (state.time * 18 * state.speed) % 210;
+        ctx.fillStyle = night ? '#27453f' : '#91b399';
+        ctx.beginPath(); ctx.moveTo(0,h*.66);
+        for(var x=-220-offsetFar; x<w+240; x+=210) {
+          ctx.quadraticCurveTo(x+80,h*.47,x+180,h*.66);
+        }
+        ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fill();
+
+        var offsetNear = (state.time * 42 * state.speed) % 170;
+        ctx.fillStyle = night ? '#19352f' : '#6e9176';
+        ctx.beginPath(); ctx.moveTo(0,h*.72);
+        for(var nx=-180-offsetNear; nx<w+180; nx+=170) {
+          ctx.quadraticCurveTo(nx+62,h*.57,nx+150,h*.72);
+        }
+        ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fill();
+
+        ctx.fillStyle = night ? '#162521' : '#405a45';
+        ctx.beginPath(); ctx.moveTo(0, terrainY(0,w,h));
+        for(var px=0; px<=w+20; px+=16) ctx.lineTo(px, terrainY(px,w,h));
+        ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fill();
+
+        var dashOffset = (state.time * 160 * state.speed) % 92;
+        ctx.strokeStyle = night ? 'rgba(235,232,204,.24)' : 'rgba(241,235,210,.32)'; ctx.lineWidth = 3; ctx.setLineDash([34,58]); ctx.lineDashOffset = dashOffset;
+        ctx.beginPath();
+        for(var rx=0;rx<=w;rx+=8){ var ry=terrainY(rx,w,h)+h*.105; if(rx===0)ctx.moveTo(rx,ry); else ctx.lineTo(rx,ry); }
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+
+      function drawBike(w, h) {
+        var scale = Math.max(.66, Math.min(1.18, w/850, h/560));
+        var bx = w * (w < 600 ? .58 : .64);
+        var ground = terrainY(bx,w,h) - 2;
+        var wheelR = 60*scale;
+        var wheelGap = 154*scale;
+        var rearX = bx-wheelGap*.55, frontX = bx+wheelGap*.45;
+        var wheelY = ground-wheelR;
+        var dark = state.terrain === 'night';
+        var ink = dark ? '#eef0df' : '#182822';
+        var frame = '#e85b3f';
+        var metal = dark ? '#c6ccbf' : '#52645a';
+        var rot = state.time*3.1*state.speed;
+        var crank = rot*1.18;
+        var pedalX = bx-9*scale, pedalY=wheelY+5*scale;
+        var seatX=rearX+61*scale, seatY=wheelY-75*scale;
+        var barX=frontX-21*scale, barY=wheelY-78*scale;
+
+        ctx.save(); ctx.globalAlpha=.2; ctx.fillStyle='#07120f';
+        ctx.beginPath(); ctx.ellipse((rearX+frontX)/2,ground+7*scale,wheelGap*.72,10*scale,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+
+        function wheel(x) {
+          circle(x,wheelY,wheelR,null,ink,4*scale);
+          circle(x,wheelY,wheelR-7*scale,null,'rgba(255,255,255,.18)',1*scale);
+          for(var j=0;j<10;j++) {
+            var a=rot+j*Math.PI/5;
+            line(x,wheelY,x+Math.cos(a)*(wheelR-8*scale),wheelY+Math.sin(a)*(wheelR-8*scale),1*scale,metal);
+          }
+          circle(x,wheelY,4*scale,metal);
+        }
+        wheel(rearX); wheel(frontX);
+
+        line(rearX,wheelY,pedalX,pedalY,5*scale,frame);
+        line(pedalX,pedalY,frontX,wheelY,5*scale,frame);
+        line(pedalX,pedalY,seatX,seatY,5*scale,frame);
+        line(seatX,seatY,frontX,wheelY,5*scale,frame);
+        line(rearX,wheelY,seatX,seatY,5*scale,frame);
+        line(frontX,wheelY,barX,barY,5*scale,frame);
+        line(barX-8*scale,barY,barX+17*scale,barY-3*scale,4*scale,ink);
+        line(seatX-16*scale,seatY,seatX+13*scale,seatY,6*scale,ink);
+        circle(pedalX,pedalY,15*scale,null,metal,2*scale);
+
+        var bob = Math.sin(crank*2)*2.5*scale;
+        var hipX=seatX+4*scale, hipY=seatY-14*scale+bob;
+        var shoulderX=seatX+22*scale, shoulderY=seatY-76*scale+bob;
+        var headX=seatX+15*scale, headY=seatY-111*scale+bob;
+        var handX=barX+9*scale, handY=barY-1*scale;
+
+        var foot1X=pedalX+Math.cos(crank)*24*scale, foot1Y=pedalY+Math.sin(crank)*24*scale;
+        var foot2X=pedalX-Math.cos(crank)*24*scale, foot2Y=pedalY-Math.sin(crank)*24*scale;
+        function leg(footX,footY,phase){
+          var kneeX=mix(hipX,footX,.52)+(phase?15:-12)*scale;
+          var kneeY=mix(hipY,footY,.46)-17*scale;
+          line(hipX,hipY,kneeX,kneeY,7*scale,ink); line(kneeX,kneeY,footX,footY,7*scale,ink);
+          line(footX-8*scale,footY,footX+8*scale,footY,4*scale,ink);
+        }
+        leg(foot2X,foot2Y,false); leg(foot1X,foot1Y,true);
+        line(hipX,hipY,shoulderX,shoulderY,8*scale,ink);
+        line(shoulderX,shoulderY,mix(shoulderX,handX,.55),shoulderY+18*scale,7*scale,ink);
+        line(mix(shoulderX,handX,.55),shoulderY+18*scale,handX,handY,7*scale,ink);
+        circle(headX,headY,18*scale,'#f1c58f',ink,5*scale);
+        ctx.save(); ctx.translate(headX-1*scale,headY-8*scale); ctx.rotate(-.1);
+        ctx.beginPath(); ctx.arc(0,0,19*scale,Math.PI,Math.PI*2); ctx.fillStyle=frame;ctx.fill();
+        line(-18*scale,0,18*scale,0,4*scale,ink); ctx.restore();
+        line(headX+17*scale,headY-3*scale,headX+24*scale,headY-1*scale,2*scale,ink);
+
+        var scarfX=shoulderX-4*scale, scarfY=shoulderY-12*scale;
+        ctx.fillStyle='#f2b84b'; ctx.beginPath(); ctx.moveTo(scarfX,scarfY); ctx.quadraticCurveTo(scarfX-28*scale,scarfY-5*scale,scarfX-43*scale+Math.sin(state.time*7)*7*scale,scarfY+7*scale); ctx.lineTo(scarfX-25*scale,scarfY+11*scale); ctx.closePath();ctx.fill();
+      }
+
+      function render(now) {
+        var w=canvas.clientWidth, h=canvas.clientHeight;
+        var dt=Math.min((now-state.last)/1000,.04); state.last=now;
+        if(state.running) state.time+=dt;
+        ctx.clearRect(0,0,w,h); drawBackground(w,h); drawBike(w,h);
+        requestAnimationFrame(render);
+      }
+
+      function setRunning(value) {
+        state.running=value;
+        pauseIcon.hidden=!value; playIcon.hidden=value;
+        toggle.setAttribute('aria-label', value?'Tạm dừng chuyển động':'Tiếp tục chuyển động');
+        statusText.textContent=value?'đang chuyển động':'đã tạm dừng';
+      }
+      toggle.addEventListener('click',function(){setRunning(!state.running);});
+      canvas.addEventListener('click',function(){setRunning(!state.running);});
+      reset.addEventListener('click',function(){state.time=0;setRunning(true);});
+      speedInput.addEventListener('input',function(){state.speed=Number(this.value);speedValue.value=state.speed.toFixed(1)+'×';});
+      document.querySelectorAll('.terrain button[data-terrain]').forEach(function(btn){
+        btn.addEventListener('click',function(){
+          state.terrain=btn.dataset.terrain;
+          shell.setAttribute('data-terrain', state.terrain);
+          document.querySelectorAll('.terrain button[data-terrain]').forEach(function(b){b.setAttribute('aria-pressed',b===btn?'true':'false');});
+        });
+      });
+      window.addEventListener('resize',resize);
+      resize(); setRunning(state.running); requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
